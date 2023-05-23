@@ -1,0 +1,71 @@
+image: docker:latest
+
+cache:
+  paths:
+    - .m2/repository
+
+services:
+  - name: docker:dind
+    command: ["--tls=false"]
+#  - mysql:latest
+
+variables:
+  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  DOCKER_HOST: "tcp://docker:2375"
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+#  TESTCONTAINERS_HOST_OVERRIDE: "host.docker.internal"
+#  MYSQL_HOST: "host.docker.internal"
+#  MYSQL_DATABASE: cnc
+#  MYSQL_ROOT_PASSWORD: 0000
+
+stages:
+#  - connection
+  - test
+  - package
+  - build Docker image
+  - deploy
+
+#mysql_connection:
+#  stage: connection
+#  image: alpine:latest
+#  services:
+#    - name: mysql:latest
+#      command:
+#        - mysqld --default-authentication-plugin=mysql_native_password
+#  script:
+#    - apk --no-cache add mysql-client
+#    - mysql --version
+#    - sleep 60
+#    - echo "SELECT 'OK';" | mysql --user=root --password=0000 --host=mysql cnc
+
+test:
+  stage: test
+  image: maven:3.8.6-openjdk-18
+  script:
+    - mvn $MAVEN_CLI_OPTS clean test
+  interruptible: true
+
+package:
+  stage: package
+  image: maven:3.8.6-openjdk-18
+  script:
+    - mvn $MAVEN_CLI_OPTS clean package -DskipTests
+  artifacts:
+    paths:
+      - target/*.jar
+  interruptible: true
+
+build:
+  stage: build Docker image
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  interruptible: true
+
+deploy:
+  stage: deploy
+  script:
+    - echo $CI_REGISTRY_IMAGE

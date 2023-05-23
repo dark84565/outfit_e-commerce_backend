@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: outfit-ecommerce-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: outfit-ecommerce-pod
+    spec:
+      containers:
+        - name: outfit-e-commerce
+          image: registry.gitlab.com/dark84565/outfit_e-commerce_backend:latest
+          ports:
+            - containerPort: 8080
+      imagePullSecrets:
+        - name: registry-credentials
+  selector:
+    matchLabels:
+      app: outfit-ecommerce-pod
